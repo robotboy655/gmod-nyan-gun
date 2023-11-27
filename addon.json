@@ -1,0 +1,11 @@
+{
+	"id"		:	"123277559",
+	"title"		:	"Nyan Gun",
+	"type"		:	"weapon",
+	"tags"		:	[ "fun", "comic" ],
+	"ignore"	:
+	[
+		"*.txt",
+		"*.pdn"
+	]
+}

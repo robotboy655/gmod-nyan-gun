@@ -1,5 +1,5 @@
 
-local Rainbow = Material( "nyan/rainbow" )
+EFFECT.RainbowMaterial = Material( "nyan/rainbow" )
 
 function EFFECT:Init( data )
 
@@ -31,7 +31,7 @@ function EFFECT:Render()
 	local v2 = ( self.DieTime - CurTime() ) / self.LifeTime
 	local a = self.EndPos - self.Dir * math.min( 1 - ( v1 * self.Dist ), self.Dist )
 
-	render.SetMaterial( Rainbow )
+	render.SetMaterial( self.RainbowMaterial )
 	render.DrawBeam( a, self.EndPos, v2 * 6, 0, self.Dist / 10, Color( 255, 255, 255, v2 * 255 ) )
 
 end

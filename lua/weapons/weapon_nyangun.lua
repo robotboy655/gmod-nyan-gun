@@ -5,6 +5,8 @@ AddCSLuaFile( "effects/rb655_nyan_bounce.lua" )
 
 if ( SERVER ) then resource.AddWorkshop( "123277559" ) end
 
+--[[ --------------------------------- Customization Settings ---------------------------------- ]]
+
 SWEP.Slot = 2
 SWEP.SlotPos = 5
 SWEP.DrawWeaponInfoBox = false
@@ -19,27 +21,54 @@ SWEP.AutoSwitchTo = false
 SWEP.AutoSwitchFrom = false
 SWEP.ViewModelFOV = 54
 SWEP.UseHands = true
-SWEP.DrawAmmo = false
 SWEP.HoldType = "smg"
 
-SWEP.Primary.ClipSize = 1
+SWEP.IdleLoopSound = "weapons/nyan/nyan_loop.wav"
+SWEP.ShootLoopSound = "weapons/nyan/nyan_beat.wav"
+SWEP.TracerBounceEffect = "rb655_nyan_bounce"
+
+SWEP.Primary.ClipSize = 10
 SWEP.Primary.Delay = 0.1
 SWEP.Primary.Damage = 16
-SWEP.Primary.DefaultClip = 1
+SWEP.Primary.Pellets = 1
+SWEP.Primary.DefaultClip = 10
+SWEP.Primary.Infinite = true
 SWEP.Primary.Automatic = true
 SWEP.Primary.Ammo = "rb655_nyan"
+SWEP.Primary.Enabled = true
+SWEP.Primary.TracerEffect = "rb655_nyan_tracer"
 
-SWEP.Secondary.ClipSize = 1
 SWEP.Secondary.Delay = 0.5
 SWEP.Secondary.Damage = 8
-SWEP.Secondary.DefaultClip = 1
+SWEP.Secondary.Pellets = 6
+SWEP.Secondary.Infinite = true
 SWEP.Secondary.Automatic = false
 SWEP.Secondary.Ammo = "rb655_nyan"
+SWEP.Secondary.Enabled = true
+SWEP.Secondary.TracerEffect = "rb655_nyan_tracer"
+
+-- Reload attack
+SWEP.Tertiary = {}
+SWEP.Tertiary.Enabled = true
+SWEP.Tertiary.Projectile = "ent_nyan_bomb"
+-- TODO: SWEP.Tertiary.Ammo ?
+
+function SWEP:ReloadSound()
+	self:EmitSound( "weapons/nyan/nya" .. math.random( 1, 2 ) .. ".wav", 100, math.random( 60, 80 ) )
+end
+function SWEP:SecondarySound()
+	self:EmitSound( "weapons/nyan/nya" .. math.random( 1, 2 ) .. ".wav", 100, math.random( 85, 100 ) )
+end
+function SWEP:PrimaryNPCSound()
+	self:EmitSound( "weapons/nyan/nya" .. math.random( 1, 2 ) .. ".wav", 100, math.random( 60, 80 ) )
+end
+
+--[[ --------------------------------- Custom Ammo Type ---------------------------------- ]]
 
 game.AddAmmoType( { name = "rb655_nyan" } )
 if ( CLIENT ) then language.Add( "rb655_nyan_ammo", "Annoying Ammo" ) end
 
-/* --------------------------------- TTT ---------------------------------- */
+--[[ --------------------------------- TTT ---------------------------------- ]]
 
 SWEP.EquipMenuData = {
 	type = "item_weapon",
@@ -61,13 +90,20 @@ if ( GAMEMODE.Name == "Trouble in Terrorist Town" ) then
 	SWEP.Primary.ClipSize = 128
 	SWEP.Primary.DefaultClip = 128
 	SWEP.Primary.ClipMax = 128
+	SWEP.Primary.Infinite = false
+
+	SWEP.Secondary.Enabled = false
+	SWEP.Secondary.Infinite = false
+
+	SWEP.Tertiary.Enabled = false
 
 	SWEP.Slot = 6
 end
 
 function SWEP:IsEquipment() return false end
+function SWEP:GetHeadshotMultiplier() return 1 end
 
-/* ------------------------------ END OF TTT ------------------------------ */
+--[[ ------------------------------ END OF TTT ------------------------------ ]]
 
 function SWEP:SetupDataTables()
 	self:NetworkVar( "Float", 1, "NextIdle" )
@@ -79,15 +115,18 @@ end
 
 function SWEP:PrimaryAttack()
 
-	if ( !self:CanPrimaryAttack() ) then return end
+	if ( not self.Primary.Enabled ) then return end
+	if ( not self:CanPrimaryAttack() ) then return end
 
-	if ( self.Owner:IsNPC() ) then
-		self:EmitSound( "weapons/nyan/nya" .. math.random( 1, 2 ) .. ".wav", 100, math.random( 60, 80 ) )
+	local owner = self:GetOwner()
+
+	if ( owner:IsNPC() ) then
+		self:PrimaryNPCSound()
 	else
 		if ( self.LoopSound ) then
 			self.LoopSound:ChangeVolume( 1, 0.1 )
 		else
-			self.LoopSound = CreateSound( self.Owner, Sound( "weapons/nyan/nyan_loop.wav" ) )
+			self.LoopSound = CreateSound( owner, self.IdleLoopSound )
 			if ( self.LoopSound ) then self.LoopSound:Play() end
 		end
 		if ( self.BeatSound ) then self.BeatSound:ChangeVolume( 0, 0.1 ) end
@@ -96,24 +135,23 @@ function SWEP:PrimaryAttack()
 	if ( IsFirstTimePredicted() ) then
 
 		local bullet = {}
-		bullet.Num = 1
-		bullet.Src = self.Owner:GetShootPos()
-		bullet.Dir = self.Owner:GetAimVector()
+		bullet.Num = self.Primary.Pellets
+		bullet.Src = owner:GetShootPos()
+		bullet.Dir = owner:GetAimVector()
 		bullet.Spread = Vector( 0.01, 0.01, 0 )
 		bullet.Tracer = 1
 		bullet.Force = 5
 		bullet.Damage = self.Primary.Damage
 		--bullet.AmmoType = "Ar2AltFire" -- For some extremely stupid reason this breaks the tracer effect
-		bullet.TracerName = "rb655_nyan_tracer"
-		self.Owner:FireBullets( bullet )
+		bullet.TracerName = self.Primary.TracerEffect
+		owner:FireBullets( bullet )
 
 		self:SendWeaponAnim( ACT_VM_PRIMARYATTACK )
-		self.Owner:SetAnimation( PLAYER_ATTACK1 )
+		owner:SetAnimation( PLAYER_ATTACK1 )
 
-		if ( GAMEMODE.Name == "Trouble in Terrorist Town" ) then
+		if ( not self.Primary.Infinite ) then
 			self:TakePrimaryAmmo( 1 )
 		end
-
 	end
 
 	self:SetNextPrimaryFire( CurTime() + self.Primary.Delay )
@@ -123,34 +161,34 @@ function SWEP:PrimaryAttack()
 
 end
 
-function SWEP:GetHeadshotMultiplier()
-
-	return 1
-
-end
-
 function SWEP:SecondaryAttack()
 
-	if ( GAMEMODE.Name == "Trouble in Terrorist Town" ) then return end -- Disable it
-	if ( !self:CanSecondaryAttack() ) then return end
+	if ( not self.Secondary.Enabled ) then return end
+	if ( not self:CanPrimaryAttack() ) then return end
+
+	local owner = self:GetOwner()
 
 	if ( IsFirstTimePredicted() ) then
-		self:EmitSound( "weapons/nyan/nya" .. math.random( 1, 2 ) .. ".wav", 100, math.random( 85, 100 ) )
+		self:SecondarySound()
 
 		local bullet = {}
-		bullet.Num = 6
-		bullet.Src = self.Owner:GetShootPos()
-		bullet.Dir = self.Owner:GetAimVector()
+		bullet.Num = self.Secondary.Pellets
+		bullet.Src = owner:GetShootPos()
+		bullet.Dir = owner:GetAimVector()
 		bullet.Spread = Vector( 0.10, 0.1, 0 )
 		bullet.Tracer = 1
 		bullet.Force = 10
 		bullet.Damage = self.Secondary.Damage
 		--bullet.AmmoType = "Ar2AltFire"
-		bullet.TracerName = "rb655_nyan_tracer"
-		self.Owner:FireBullets( bullet )
+		bullet.TracerName = self.Secondary.TracerEffect
+		owner:FireBullets( bullet )
 
 		self:SendWeaponAnim( ACT_VM_SECONDARYATTACK )
-		self.Owner:SetAnimation( PLAYER_ATTACK1 )
+		owner:SetAnimation( PLAYER_ATTACK1 )
+
+		if ( not self.Secondary.Infinite ) then
+			self:TakePrimaryAmmo( 1 )
+		end
 	end
 
 	self:SetNextPrimaryFire( CurTime() + self.Secondary.Delay )
@@ -162,17 +200,19 @@ end
 
 function SWEP:Reload()
 
-	if ( GAMEMODE.Name == "Trouble in Terrorist Town" ) then return end -- Disable it
-	if ( !self.Owner:KeyPressed( IN_RELOAD ) ) then return end
+	if ( not self.Tertiary.Enabled ) then return end
 	if ( self:GetNextPrimaryFire() > CurTime() ) then return end
 
+	local owner = self:GetOwner()
+	if ( not owner:KeyPressed( IN_RELOAD ) ) then return end
+
 	if ( SERVER ) then
-		local ang = self.Owner:EyeAngles()
-		local ent = ents.Create( "ent_nyan_bomb" )
+		local ang = owner:EyeAngles()
+		local ent = ents.Create( self.Tertiary.Projectile )
 		if ( IsValid( ent ) ) then
-			ent:SetPos( self.Owner:GetShootPos() + ang:Forward() * 28 + ang:Right() * 24 - ang:Up() * 8 )
+			ent:SetPos( owner:GetShootPos() + ang:Forward() * 28 + ang:Right() * 24 - ang:Up() * 8 )
 			ent:SetAngles( ang )
-			ent:SetOwner( self.Owner )
+			ent:SetOwner( owner )
 			ent:Spawn()
 			ent:Activate()
 
@@ -182,9 +222,9 @@ function SWEP:Reload()
 	end
 
 	self:SendWeaponAnim( ACT_VM_SECONDARYATTACK )
-	self.Owner:SetAnimation( PLAYER_ATTACK1 )
+	owner:SetAnimation( PLAYER_ATTACK1 )
 
-	self:EmitSound( "weapons/nyan/nya" .. math.random( 1, 2 ) .. ".wav", 100, math.random( 60, 80 ) )
+	self:ReloadSound()
 
 	self:SetNextPrimaryFire( CurTime() + 1 )
 	self:SetNextSecondaryFire( CurTime() + 1 )
@@ -198,7 +238,7 @@ function SWEP:DoImpactEffect( trace, damageType )
 	local effectdata = EffectData()
 	effectdata:SetStart( trace.HitPos )
 	effectdata:SetOrigin( trace.HitNormal + Vector( math.Rand( -0.5, 0.5 ), math.Rand( -0.5, 0.5 ), math.Rand( -0.5, 0.5 ) ) )
-	util.Effect( "rb655_nyan_bounce", effectdata )
+	util.Effect( self.TracerBounceEffect, effectdata )
 
 	return true
 
@@ -214,7 +254,6 @@ function SWEP:KillSounds()
 
 	if ( self.BeatSound ) then self.BeatSound:Stop() self.BeatSound = nil end
 	if ( self.LoopSound ) then self.LoopSound:Stop() self.LoopSound = nil end
-	timer.Remove( "rb655_idle" .. self:EntIndex() )
 
 end
 
@@ -239,7 +278,7 @@ function SWEP:Deploy()
 
 	self:Idle()
 
-	self.BeatSound = CreateSound( self.Owner, Sound( "weapons/nyan/nyan_beat.wav" ) )
+	self.BeatSound = CreateSound( self:GetOwner(), self.ShootLoopSound )
 	if ( self.BeatSound ) then self.BeatSound:Play() end
 
 	return true
@@ -255,6 +294,14 @@ end
 
 function SWEP:Think()
 
+	if ( self:Clip1() <= 0 and self:GetNextPrimaryFire() < CurTime() ) then
+
+		self:DefaultReload( ACT_VM_RELOAD )
+		self:Idle()
+
+		return
+	end
+
 	if ( self:GetNextIdle() > 0 and CurTime() > self:GetNextIdle() ) then
 
 		self:DoIdleAnimation()
@@ -262,9 +309,14 @@ function SWEP:Think()
 
 	end
 
-	if ( self.Owner:IsPlayer() and ( self.Owner:KeyReleased( IN_ATTACK ) or !self.Owner:KeyDown( IN_ATTACK ) ) ) then
+	local owner = self:GetOwner()
+	if ( owner:IsPlayer() and ( owner:KeyReleased( IN_ATTACK ) or not owner:KeyDown( IN_ATTACK ) or self:Clip1() <= 0 ) ) then
 		if ( self.LoopSound ) then self.LoopSound:ChangeVolume( 0, 0.1 ) end
 		if ( self.BeatSound ) then self.BeatSound:ChangeVolume( 1, 0.1 ) end
+	end
+
+	if ( CLIENT ) then
+		self.DrawAmmo = not self.Primary.Infinite or not self.Secondary.Infinite
 	end
 
 end
@@ -283,8 +335,11 @@ end
 
 function SWEP:GetAnimationTime()
 
+	local owner = self:GetOwner()
+
 	local time = self:SequenceDuration()
-	if ( time == 0 and IsValid( self.Owner ) and !self.Owner:IsNPC() and IsValid( self.Owner:GetViewModel() ) ) then time = self.Owner:GetViewModel():SequenceDuration() end
+	if ( time == 0 and IsValid( owner ) and not owner:IsNPC() and IsValid( owner:GetViewModel() ) ) then time = owner:GetViewModel():SequenceDuration() end
+
 	return time
 
 end
@@ -308,8 +363,11 @@ end
 function SWEP:CustomAmmoDisplay()
 
 	self.AmmoDisplay = self.AmmoDisplay or {}
+	self.AmmoDisplay.Draw = true
+	self.AmmoDisplay.PrimaryClip = self:Clip1()
+	self.AmmoDisplay.PrimaryAmmo = self:Ammo1()
 
-	self.AmmoDisplay.Draw = false
+	-- TODO: Ammo for the bombs?
 
 	return self.AmmoDisplay
 
